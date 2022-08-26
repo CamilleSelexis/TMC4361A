@@ -96,6 +96,9 @@ void TMC4361A::setTargetRelative(uint32_t xrelative) {
 uint32_t TMC4361A::getCurrentPos(){
 	return readRegister(TMC4361A_XACTUAL);
 }
+void TMC4361A::setCurrentPos(long pos){
+	writeRegister(TMC4361A_XACTUAL,pos);
+}
 
 uint32_t TMC4361A::getCurrentTarget(){
 	return readRegister(TMC4361A_X_TARGET);

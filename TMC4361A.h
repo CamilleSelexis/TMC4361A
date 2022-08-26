@@ -100,6 +100,7 @@ class TMC4361A
 		void setTarget(uint32_t xtarget);
 		void setTargetRelative(uint32_t xrelative);
 		uint32_t getCurrentPos();
+		void setCurrentPos(long pos);
 		uint32_t getCurrentTarget();
 		void setVMAX(uint32_t vmax, byte format);
 		void setVMAX(uint32_t vmax);
