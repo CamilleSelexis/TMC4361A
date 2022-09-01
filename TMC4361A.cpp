@@ -110,7 +110,7 @@ void TMC4361A::setVMAX(uint32_t vmax, byte format){
 			_vmax = vmax;
 			break;
 		case 1: //vmax in turn/s
-			_vmax = ((vmax*_stepPerRev*_usteps)<<8);//eight first bit are 
+			_vmax = ((vmax*_stepPerRev*_usteps)<<8);//eight first bit are after the coma
 			break;
 		case 2: //vmax in rpm
 			_vmax = ((vmax*_stepPerRev*_usteps/60)<<8);

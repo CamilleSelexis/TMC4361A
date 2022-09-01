@@ -9,6 +9,7 @@
 
 #define VMAX_DEFAULT 0x00C80000 //1 turn/s max value for 16 MHz : 4.194 Mpps = 82 rps at 256 usteps
 #define AMAX_DEFAULT 0x000FFFFF //max value for 16 MHz : 2.097 Mpps2
+#define AMAX_SLOW 	 0x0000FFFF
 
 #define ENCODER_ANGLE_ADDR 0x20
 #define ENCODER_TURN_ADDR 0x2C
