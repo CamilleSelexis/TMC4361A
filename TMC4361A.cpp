@@ -23,7 +23,7 @@ void TMC4361A::begin() {
 
 	writeRegister(TMC4361A_SPIOUT_CONF,0x8440010B);//844->SPI timing 10B-> 1us between poll TMC26x S/D output
 	writeRegister(TMC4361A_STEP_CONF, 0x00FB0C80);// 200 steps/rev 256 usteps
-	writeRegister(TMC4361A_CLK_FREQ,16666667); //16.7MHz external clock
+	writeRegister(TMC4361A_CLK_FREQ,CLK_FREQ); //16.7MHz external clock
 
 	init_EncoderSPI();//Init the encoder
 	init_TMC2660();//Init the driver

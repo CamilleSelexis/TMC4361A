@@ -11,6 +11,7 @@
 #define AMAX_DEFAULT 0x000FFFFF //max value for 16 MHz : 2.097 Mpps2
 #define AMAX_SLOW 	 0x0000FFFF
 
+#define CLK_FREQ 	 20000000
 #define ENCODER_ANGLE_ADDR 0x20
 #define ENCODER_TURN_ADDR 0x2C
 
