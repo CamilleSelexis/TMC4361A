@@ -25,7 +25,7 @@ void TMC4361A::begin() {
 	writeRegister(TMC4361A_STEP_CONF, 0x00FB0C80);// 200 steps/rev 256 usteps
 	writeRegister(TMC4361A_CLK_FREQ,CLK_FREQ); //16.7MHz external clock
 
-	init_EncoderSPI();//Init the encoder
+	//init_EncoderSPI();//Init the encoder
 	init_TMC2660();//Init the driver
 
 
@@ -38,7 +38,10 @@ void TMC4361A::begin() {
 	setVMAX(_vmax); //1 rps
 	setAMAX(_amax); //Set both AMAX and DMAX
 	writeRegister(TMC4361A_XACTUAL,0); //reset position
-	//PowerOffMOSFET();//Disable the MOSFET to prevent the motor from over heating
+	writeRegister(TMC4361A_X_TARGET,51200);
+	//Serial.println("Done initialising controller");
+	//RPC.println("Done initialising controller");
+	//powerOffMOSFET();//Disable the MOSFET to prevent the motor from over heating
 
 }
 
@@ -83,13 +86,13 @@ void TMC4361A::powerOnMOSFET() {
 }
 //Set target absolute
 void TMC4361A::setTarget(uint32_t xtarget) { 
-	powerOnMOSFET();
+	//powerOnMOSFET();
 	writeRegister(TMC4361A_X_TARGET, xtarget);
 }
 //Set target relative to current position
 void TMC4361A::setTargetRelative(uint32_t xrelative) {
 	uint32_t xtarget = getCurrentPos() + xrelative;
-	powerOnMOSFET();
+	//powerOnMOSFET();
 	writeRegister(TMC4361A_X_TARGET,xtarget);
 }
 
