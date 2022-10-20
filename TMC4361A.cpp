@@ -39,6 +39,7 @@ void TMC4361A::begin() {
 	setAMAX(_amax); //Set both AMAX and DMAX
 	writeRegister(TMC4361A_XACTUAL,0); //reset position
 	writeRegister(TMC4361A_X_TARGET,51200);
+	delay(500);
 	//Serial.println("Done initialising controller");
 	//RPC.println("Done initialising controller");
 	//powerOffMOSFET();//Disable the MOSFET to prevent the motor from over heating
