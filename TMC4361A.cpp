@@ -4,9 +4,10 @@
 //#include "TMC2660_REG.h"
 #include "Arduino.h"
 
-TMC4361A::TMC4361A(uint8_t cs, uint8_t tgt_pin) {
+TMC4361A::TMC4361A(uint8_t cs, uint8_t rst_pin) {
 	_cs = cs;
-	_tgt_pin = tgt_pin;
+	_tgt_pin = 0;
+	_rst_pin = rst_pin;
 	_axis = 0;
 	_vmax = VMAX_DEFAULT;
 	_amax = AMAX_DEFAULT;
@@ -17,6 +18,8 @@ TMC4361A::TMC4361A(uint8_t cs, uint8_t tgt_pin) {
 }
 
 void TMC4361A::begin() {
+	//resetController();
+
 	SPI.begin();
 	_spiSettings = SPISettings(1000000,MSBFIRST,SPI_MODE3);
 	//SPI.beginTransaction(_spiSettings);
@@ -27,7 +30,7 @@ void TMC4361A::begin() {
 
 	//init_EncoderSPI();//Init the encoder
 	init_TMC2660();//Init the driver
-
+	powerOffMOSFET();
 
 	//Movement parameters
 	uint32_t DIR_SETUP_TIME = 2;//#clock cycle step pulse wait after dir change
@@ -38,11 +41,9 @@ void TMC4361A::begin() {
 	setVMAX(_vmax); //1 rps
 	setAMAX(_amax); //Set both AMAX and DMAX
 	writeRegister(TMC4361A_XACTUAL,0); //reset position
-	writeRegister(TMC4361A_X_TARGET,51200);
+	writeRegister(TMC4361A_X_TARGET,0);//reset target
 	delay(500);
-	//Serial.println("Done initialising controller");
-	//RPC.println("Done initialising controller");
-	//powerOffMOSFET();//Disable the MOSFET to prevent the motor from over heating
+	powerOnMOSFET();//Disable the MOSFET to prevent the motor from over heating
 
 }
 
@@ -77,6 +78,14 @@ void TMC4361A::init_EncoderSPI() {
 
 	writeRegister(TMC4361A_GENERAL_CONF,0x00006020|0x00300C00);//Encoder in SPI mode
 }
+
+void TMC4361A::resetController() {
+	pinMode(_rst_pin,OUTPUT);
+	digitalWrite(_rst_pin,LOW);
+	delay(100);
+	digitalWrite(_rst_pin,HIGH);
+	pinMode(_rst_pin,INPUT);
+}
 void TMC4361A::powerOffMOSFET() {
 	writeRegister(TMC4361A_COVER_LOW_WR,0x000901B0); //CHOPCONF Disable the MOSFET
 	delay(2);
@@ -87,13 +96,13 @@ void TMC4361A::powerOnMOSFET() {
 }
 //Set target absolute
 void TMC4361A::setTarget(uint32_t xtarget) { 
-	//powerOnMOSFET();
+	powerOnMOSFET();
 	writeRegister(TMC4361A_X_TARGET, xtarget);
 }
 //Set target relative to current position
 void TMC4361A::setTargetRelative(uint32_t xrelative) {
 	uint32_t xtarget = getCurrentPos() + xrelative;
-	//powerOnMOSFET();
+	powerOnMOSFET();
 	writeRegister(TMC4361A_X_TARGET,xtarget);
 }
 

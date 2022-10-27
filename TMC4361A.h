@@ -21,6 +21,7 @@ class TMC4361A
 		uint8_t _axis;
 		uint8_t _cs;
 		uint8_t _tgt_pin;
+		uint8_t _rst_pin;
 		long _clk_freq;
 		SPISettings _spiSettings;
 		byte _spiStatus;
@@ -94,9 +95,10 @@ class TMC4361A
 		//call this function to init the controller
 		void begin();
 		//call this function to init the driver
+		
 		void init_TMC2660();
-
 		void init_EncoderSPI();
+		void resetController();
 		void powerOffMOSFET();
 		void powerOnMOSFET();
 		void setTarget(uint32_t xtarget);
