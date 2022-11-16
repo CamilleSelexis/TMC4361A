@@ -44,6 +44,8 @@ void TMC4361A::begin() {
 	setVMAX(_vmax); //1 rps
 	setAMAX(_amax); //Set both AMAX and DMAX
 	writeRegister(TMC4361A_XACTUAL,0); //reset position
+	//writeRegister(TMC4361A_ENC_POS,0); //Set enc pos to xactual
+	writeRegister(TMC4361A_CL_OFFSET,0);
 	writeRegister(TMC4361A_X_TARGET,0);//reset target
 	delay(500);
 	powerOnMOSFET();//Disable the MOSFET to prevent the motor from over heating
@@ -69,20 +71,23 @@ void TMC4361A::init_TMC2660() {
 }
 
 void TMC4361A::init_EncoderSPI() {
-	writeRegister(TMC4361A_ENC_IN_CONF,0x00010400); //internal multiturn calc with enc pos latched on N event ??
+	uint32_t ENC_IN_CONF = 0x00011400; //default 0x00010400 -> 4 = ENC_POS is latched to enc_latch / 1 = multiturn data / 1 = internal multiturn /
+	writeRegister(TMC4361A_ENC_IN_CONF,0x00014400); //0x00015400  -- 0x00010400internal multiturn calc with enc pos latched on N event ??
 	writeRegister(TMC4361A_ENC_IN_RES_WR, 0x00001000); //resolution 4096 ENC_Const calculated automatically = 12.5
-	uint8_t SINGLETURN_RES = 0x0b; // 12-1 = 11
-	uint8_t MULTITURN_RES = 0x01; //2-1
-	uint8_t STATUS_BIT_CNT = 0x01; //Max 3 status bit on TMC4361A so must use multiturn to trick it -> 2 status + 2 multiturn = 4
+	uint8_t SINGLETURN_RES = 0x0B; // 12-1 = 11
+	uint8_t MULTITURN_RES = 0x03; //4-1 = 3
+	uint8_t STATUS_BIT_CNT = 0x00; //Status bits set as multiturn bits, but unused nonetheless
 	uint8_t SERIAL_ADDR_BITS = 0x08; //8 bits for the address
-	uint32_t ENC_IN_DATA = SINGLETURN_RES | MULTITURN_RES<<5 | STATUS_BIT_CNT <<10 |SERIAL_ADDR_BITS <<16;
-	writeRegister(TMC4361A_ENC_IN_DATA,0x0008042B); //0-4 SingleTurn / 5-9 Multiturn / 10-11 Status / 12-15 Reserved / 16-23 Serial Addr / 24-31 nb bits for encoder config
+	uint8_t SERIAL_DATA_BITS = 0x00; //0 DAta bits for encoder config
+	uint32_t ENC_IN_DATA = SINGLETURN_RES | MULTITURN_RES<<5 | STATUS_BIT_CNT <<10 |SERIAL_ADDR_BITS <<16 |SERIAL_DATA_BITS << 24;
+	writeRegister(TMC4361A_ENC_IN_DATA,ENC_IN_DATA);//0x0008000F
 	writeRegister(TMC4361A_ADDR_TO_ENC, ENCODER_ANGLE_ADDR); //For angle data (0x2C for multiturn data)
 	uint32_t SER_CLK_IN_HIGH = 0x0004;
   uint32_t SER_CLK_IN_LOW = 0x0004;
 	writeRegister(TMC4361A_SER_CLK_IN_HIGH_WR,(SER_CLK_IN_LOW<<16)|SER_CLK_IN_HIGH);
 	writeRegister(TMC4361A_SSI_IN_CLK_DELAY_WR, 0x00F00080); //8*16 clock between cs low & start of data transfer
-	writeRegister(TMC4361A_SER_PTIME_WR, 0x13880);// 5ms between call
+	//writeRegister(TMC4361A_SER_PTIME_WR, 0x13880);// 5ms between call
+	writeRegister(TMC4361A_SER_PTIME_WR,0x01900); //400us between call
 
 	writeRegister(TMC4361A_GENERAL_CONF,0x00006020|0x00300C00);//Encoder in SPI mode
 }
@@ -235,13 +240,30 @@ float TMC4361A::getEncoderTurn(){
 	uint32_t turn_data = readRegister(TMC4361A_ADDR_FROM_ENC);
 	float turn = float(turn_data&0x0fff)/8;
 
-	writeRegister(TMC4361A_ADDR_TO_ENC,ENCODER_ANGLE_ADDR);
+	writeRegister(TMC4361A_ADDR_TO_ENC,ENCODER_ANGLE_ADDR);//Rewrite the encoder angle address
 	return turn;
 }
 
 //Return the encoder pos from the TMC4361A
 uint32_t TMC4361A::getEncoderPos(){
 	return readRegister(TMC4361A_ENC_POS);
+}
+
+uint32_t TMC4361A::getEncoderData(){
+	return readRegister(TMC4361A_DATA_FROM_ENC);
+}
+
+uint32_t TMC4361A::getEncoderRaw(){
+	return readRegister(TMC4361A_ADDR_FROM_ENC);
+}
+
+void TMC4361A::alignEncoder(){
+	uint32_t Xactual = readRegister(TMC4361A_XACTUAL);
+	writeRegister(TMC4361A_ENC_POS,Xactual);
+}
+
+uint32_t TMC4361A::getEncoderDev(){
+	return readRegister(TMC4361A_ENC_POS_DEV_RD);
 }
 
 void TMC4361A::setClock(uint32_t clockFreq){
