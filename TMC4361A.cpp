@@ -24,6 +24,9 @@ void TMC4361A::begin() {
 	_spiSettings = SPISettings(1000000,MSBFIRST,SPI_MODE3);
 	//SPI.beginTransaction(_spiSettings);
 
+	//Reset the controller
+	writeRegister(TMC4361A_RESET_REG,0x52535400); // reset code
+	delay(200);
 	writeRegister(TMC4361A_SPIOUT_CONF,0x8440010B);//844->SPI timing 10B-> 1us between poll TMC26x S/D output
 	writeRegister(TMC4361A_STEP_CONF, 0x00FB0C80);// 200 steps/rev 256 usteps
 	writeRegister(TMC4361A_CLK_FREQ,CLK_FREQ); //16.7MHz external clock
@@ -36,7 +39,7 @@ void TMC4361A::begin() {
 	uint32_t DIR_SETUP_TIME = 2;//#clock cycle step pulse wait after dir change
 	uint32_t STP_LENGTH_ADD = 1;//#clock cycle step pulse is held
 	writeRegister(TMC4361A_STP_LENGTH_ADD,((DIR_SETUP_TIME << 16) | STP_LENGTH_ADD));
-	writeRegister(TMC4361A_RAMPMODE,0b101);
+	writeRegister(TMC4361A_RAMPMODE,0b101); //Trapezoidal motion profile in positioning mode
 	//max value for 16 MHz : 4.194 Mpps = 82 rps at 256 usteps
 	setVMAX(_vmax); //1 rps
 	setAMAX(_amax); //Set both AMAX and DMAX
@@ -66,9 +69,14 @@ void TMC4361A::init_TMC2660() {
 }
 
 void TMC4361A::init_EncoderSPI() {
-	writeRegister(TMC4361A_ENC_IN_CONF,0x00010400); //internal multiturn
-	writeRegister(TMC4361A_ENC_IN_RES_WR, 0x00001000); //resolution 4096
-	writeRegister(TMC4361A_ENC_IN_DATA,0x0008000F); //21B Angle data bits + 1 2 Status bits + 1+ 1 multiturn bits
+	writeRegister(TMC4361A_ENC_IN_CONF,0x00010400); //internal multiturn calc with enc pos latched on N event ??
+	writeRegister(TMC4361A_ENC_IN_RES_WR, 0x00001000); //resolution 4096 ENC_Const calculated automatically = 12.5
+	uint8_t SINGLETURN_RES = 0x0b; // 12-1 = 11
+	uint8_t MULTITURN_RES = 0x01; //2-1
+	uint8_t STATUS_BIT_CNT = 0x01; //Max 3 status bit on TMC4361A so must use multiturn to trick it -> 2 status + 2 multiturn = 4
+	uint8_t SERIAL_ADDR_BITS = 0x08; //8 bits for the address
+	uint32_t ENC_IN_DATA = SINGLETURN_RES | MULTITURN_RES<<5 | STATUS_BIT_CNT <<10 |SERIAL_ADDR_BITS <<16;
+	writeRegister(TMC4361A_ENC_IN_DATA,0x0008042B); //0-4 SingleTurn / 5-9 Multiturn / 10-11 Status / 12-15 Reserved / 16-23 Serial Addr / 24-31 nb bits for encoder config
 	writeRegister(TMC4361A_ADDR_TO_ENC, ENCODER_ANGLE_ADDR); //For angle data (0x2C for multiturn data)
 	uint32_t SER_CLK_IN_HIGH = 0x0004;
   uint32_t SER_CLK_IN_LOW = 0x0004;
@@ -77,6 +85,65 @@ void TMC4361A::init_EncoderSPI() {
 	writeRegister(TMC4361A_SER_PTIME_WR, 0x13880);// 5ms between call
 
 	writeRegister(TMC4361A_GENERAL_CONF,0x00006020|0x00300C00);//Encoder in SPI mode
+}
+
+void TMC4361A::init_closedLoop() {
+	 // Closed Loop calibration of TMC4361 Motion Controller
+	writeRegister(TMC4361A_ENC_IN_RES_WR,0x00001000); // Encoder resolution = 4096/rev
+	writeRegister(TMC4361A_CL_BETA,0x00FF00FF); //CL_BETA = CL_GAMMA = 255
+	writeRegister(TMC4361A_VMAX,0x00100000); //Slow speed
+	writeRegister(TMC4361A_CL_DELTA_P_WR,0x00010000); //CL_DELTA_P = 1
+	writeRegister(TMC4361A_ENC_IN_CONF,0x00400000); //Closed loop on
+ /*
+ 
+ sendData(0xA0,0x00000004); // hold + position mode
+
+ sendData(0xA4,0x00100000); // slow velocity
+
+ sendData(0xDC,0x00010000); // cl_p = 1.0
+
+ sendData(0x87,0x00400000); // turn on closed loop
+ 
+ sendData(0xB7,0x00000080); // move to full step position
+
+ sendData(0x87,0x01400000); // turn on closed loop calibration
+
+ sendData(0x87,0x00400000); // turn off closed loop calibration
+
+ sendData(0xA4,0x00000000); // v = 0
+
+
+ // Setup Closed Loop Operation
+ sendData(0xA0,0x00000006); // S-Ramp + POS Mode
+ sendData(0xA4, 0x7A12000); // VMAX = 500000 pps
+
+ sendData(0xA8,0x00000200); // AMAX
+ sendData(0xA9,0x00000200); // DMAX
+ 
+ sendData(0xAD,0x00000100); // bow1
+ sendData(0xAE,0x00000100); // bow2
+ sendData(0xAF,0x00000100); // bow3
+ sendData(0xB0,0x00000100); // bow4
+ 
+ sendData(0xE0,0x00250000); // emf_vmin = 
+ sendData(0xE1,0x00450000); // emf_vadd = -> emf_vmax = 
+ 
+ sendData(0xE2,0x00FFFFFF); // emf_vel0_timer
+ sendData(0xE3,0x02000864); // enc vel filter settings
+ 
+ sendData(0xDF,0x00000014); // cl_tolerance = 20
+ sendData(0xDC,0x00010000); // cl_p = 1.0
+ sendData(0xDA,0x000000C8); // cl_vlimit_p = 200
+ sendData(0xDB,0x00000032); // cl_vlimit_i = 50
+ sendData(0xDD,0x000003E8); // cl_vlimit_diclip = 1000
+ sendData(0xDE,0x00100000); // cl_vlimit = 1048576 pps
+
+ sendData(0x86,0x0032f064); // cl scaling values
+ sendData(0x98,0x00001000); // cl_upscale
+ sendData(0x99,0x00100000); // cl_dnscale
+ 
+ sendData(0x87,0x0A400000); // cl with gamma correction and vlimit
+ sendData(0x85,0x00000080); // cl scaling on*/
 }
 
 void TMC4361A::resetController() {

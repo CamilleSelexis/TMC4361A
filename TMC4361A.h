@@ -98,6 +98,7 @@ class TMC4361A
 		
 		void init_TMC2660();
 		void init_EncoderSPI();
+		void init_closedLoop();
 		void resetController();
 		void powerOffMOSFET();
 		void powerOnMOSFET();
