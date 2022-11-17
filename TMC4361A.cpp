@@ -79,7 +79,7 @@ void TMC4361A::init_EncoderSPI() {
 	uint8_t STATUS_BIT_CNT = 0x00; //Status bits set as multiturn bits, but unused nonetheless
 	uint8_t SERIAL_ADDR_BITS = 0x08; //8 bits for the address
 	uint8_t SERIAL_DATA_BITS = 0x00; //0 DAta bits for encoder config
-	uint32_t ENC_IN_DATA = SINGLETURN_RES | MULTITURN_RES<<5 | STATUS_BIT_CNT <<10 |SERIAL_ADDR_BITS <<16 |SERIAL_DATA_BITS << 24;
+	ENC_IN_DATA = SINGLETURN_RES | MULTITURN_RES<<5 | STATUS_BIT_CNT <<10 |SERIAL_ADDR_BITS <<16 |SERIAL_DATA_BITS << 24;
 	writeRegister(TMC4361A_ENC_IN_DATA,ENC_IN_DATA);//0x0008000F
 	writeRegister(TMC4361A_ADDR_TO_ENC, ENCODER_ANGLE_ADDR); //For angle data (0x2C for multiturn data)
 	uint32_t SER_CLK_IN_HIGH = 0x0004;
@@ -96,7 +96,7 @@ void TMC4361A::init_closedLoop() {
 	 // Closed Loop calibration of TMC4361 Motion Controller
 	writeRegister(TMC4361A_ENC_IN_RES_WR,0x00001000); // Encoder resolution = 4096/rev
 	writeRegister(TMC4361A_CL_BETA,0x00FF00FF); //CL_BETA = CL_GAMMA = 255
-	writeRegister(TMC4361A_VMAX,0x00100000); //Slow speed
+	writeRegister(TMC4361A_VMAX,0x00100000); //Slow speed 4096 Us/s
 	writeRegister(TMC4361A_CL_DELTA_P_WR,0x00010000); //CL_DELTA_P = 1
 	writeRegister(TMC4361A_ENC_IN_CONF,0x00400000); //Closed loop on
  /*
