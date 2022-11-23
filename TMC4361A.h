@@ -33,6 +33,13 @@ class TMC4361A
 		int _stepPerRev;
 		int _encoderResolution;
 
+		uint32_t GENERAL_CONF;
+		uint32_t SPIOUT_CONF;
+		uint32_t STEP_CONF;
+		uint32_t ENC_IN_CONF;
+		uint32_t ENC_IN_RES_WR;
+		uint32_t ENC_IN_DATA;
+		uint32_t SER_PTIME_WR;
 
 	 	long spiTransfer(const byte address, const long data);
 

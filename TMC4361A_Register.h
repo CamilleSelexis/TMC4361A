@@ -204,11 +204,4 @@
   #define TMC4361A_RAMP_POSITION      4
   #define TMC4361A_RAMP_HOLD        0
 
-  uint32_t GENERAL_CONF;
-  uint32_t SPIOUT_CONF;
-  uint32_t STEP_CONF;
-  uint32_t ENC_IN_CONF;
-  uint32_t ENC_IN_RES_WR;
-  uint32_t ENC_IN_DATA;
-  uint32_t SER_PTIME_WR;
 #endif /* TMC4361A_REGISTER_H */
