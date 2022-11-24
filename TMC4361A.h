@@ -7,8 +7,8 @@
 #include "TMC2660_REG.h"
 
 
-//#define VMAX_DEFAULT 0x01900000 // 2 turn/s 23 digits / 8 decimal max value for 16 MHz : 4.194 Mpps = 82 rps at 256 usteps
-#define VMAX_DEFAULT 0x00C80000
+#define VMAX_DEFAULT 0x01900000 // 2 turn/s 23 digits / 8 decimal max value for 16 MHz : 4.194 Mpps = 82 rps at 256 usteps
+//#define VMAX_DEFAULT 0x00C80000
 #define AMAX_DEFAULT 0x000FFFFF //max value for 16 MHz : 2.097 Mpps2
 #define AMAX_SLOW 	 0x0000FFFF
 
@@ -106,6 +106,7 @@ class TMC4361A
 		
 		void init_TMC2660();
 		void init_EncoderSPI();
+		void init_EncoderSSI();
 		void init_closedLoop();
 		void resetController();
 		void powerOffMOSFET();

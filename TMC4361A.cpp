@@ -1,4 +1,4 @@
-
+//Library develloped for the ACCNT encoders
 
 #include "TMC4361A.h"
 //#include "TMC2660_REG.h"
@@ -90,6 +90,30 @@ void TMC4361A::init_EncoderSPI() {
 	writeRegister(TMC4361A_SER_PTIME_WR,0x01900); //400us between call
 
 	writeRegister(TMC4361A_GENERAL_CONF,0x00006020|0x00300C00);//Encoder in SPI mode
+}
+
+void TMC4361A::init_EncoderSSI() {
+	//Posital encoder need 8 blank clock cycle to generate data, 16 muliturn bits and 17 single turn
+	uint32_t ENC_IN_CONF = 0x00001400; //default 0x00010400 -> 4 = ENC_POS is latched to enc_latch / 1 = multiturn data /
+	writeRegister(TMC4361A_ENC_IN_CONF,ENC_IN_CONF); //0x00015400  -- 0x00010400internal multiturn calc with enc pos latched on N event ??
+	writeRegister(TMC4361A_ENC_IN_RES_WR, 0x00020000); //resolution 131072 ENC_Const calculated automatically = 0.39
+	uint8_t SINGLETURN_RES = 0x10; // 17-1 = 16
+	uint8_t MULTITURN_RES = 0x0F; //16-1 = 15
+	uint8_t STATUS_BIT_CNT = 0x00; //Status bits set as multiturn bits, but unused nonetheless
+	uint8_t SERIAL_ADDR_BITS = 0x00; //0 bits for the address SPI only
+	uint8_t SERIAL_DATA_BITS = 0x00; //0 DAta bits for encoder config SPI only
+	uint32_t ENC_IN_DATA = SINGLETURN_RES | MULTITURN_RES<<5 | STATUS_BIT_CNT <<10 |SERIAL_ADDR_BITS <<16 |SERIAL_DATA_BITS << 24;
+	writeRegister(TMC4361A_ENC_IN_DATA,ENC_IN_DATA);//0x0008000F
+	writeRegister(TMC4361A_ADDR_TO_ENC, ENCODER_ANGLE_ADDR); //For angle data (0x2C for multiturn data)
+	//Posital encoder goes at max 1MHz for comm -> 20 MHz clock
+	uint32_t SER_CLK_IN_HIGH = 0x0028; //500kHz for 20MHz clock
+  uint32_t SER_CLK_IN_LOW = 0x0028;
+	writeRegister(TMC4361A_SER_CLK_IN_HIGH_WR,(SER_CLK_IN_LOW<<16)|SER_CLK_IN_HIGH);
+	uint32_t SSI_IN_CLK_DELAY = 0x0140|0x00F0<<16; //8*40 clock cycle
+	writeRegister(TMC4361A_SSI_IN_CLK_DELAY_WR, SSI_IN_CLK_DELAY); //8*40 clock between cs low & start of data transfer
+	//writeRegister(TMC4361A_SER_PTIME_WR, 0x13880);// 5ms between call
+	writeRegister(TMC4361A_SER_PTIME_WR,0x01900); //400us between call
+	writeRegister(TMC4361A_GENERAL_CONF,0x00006020|0x00300400);//Encoder in SSI mode
 }
 
 void TMC4361A::init_closedLoop() {
