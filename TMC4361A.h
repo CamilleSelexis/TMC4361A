@@ -104,6 +104,7 @@ class TMC4361A
 		TMC4361A(uint8_t cs, uint8_t tgt_pin);
 		//call this function to init the controller
 		void begin();
+		void beginCL();
 		void begin_closedLoop();
 		//call this function to init the driver
 		

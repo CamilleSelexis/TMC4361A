@@ -18,6 +18,39 @@ TMC4361A::TMC4361A(uint8_t cs, uint8_t rst_pin) {
 }
 
 void TMC4361A::begin() {
+//resetController();
+
+	SPI.begin();
+	_spiSettings = SPISettings(1000000,MSBFIRST,SPI_MODE3);
+	//SPI.beginTransaction(_spiSettings);
+
+	//Reset the controller
+	writeRegister(TMC4361A_RESET_REG,0x52535400); // reset code
+	delay(200);
+	writeRegister(TMC4361A_SPIOUT_CONF,0x8440010B);//844->SPI timing 10B-> 1us between poll TMC26x S/D output
+	writeRegister(TMC4361A_STEP_CONF, 0x00FB0C80);// 200 steps/rev 256 usteps
+	writeRegister(TMC4361A_CLK_FREQ,CLK_FREQ); //16.7MHz external clock
+
+	//init_EncoderSPI();//Init the encoder
+	init_TMC2660();//Init the driver
+	powerOffMOSFET();
+
+	//Movement parameters
+	uint32_t DIR_SETUP_TIME = 2;//#clock cycle step pulse wait after dir change
+	uint32_t STP_LENGTH_ADD = 1;//#clock cycle step pulse is held
+	writeRegister(TMC4361A_STP_LENGTH_ADD,((DIR_SETUP_TIME << 16) | STP_LENGTH_ADD));
+	writeRegister(TMC4361A_RAMPMODE,0b101); //Trapezoidal motion profile in positioning mode
+	//max value for 16 MHz : 4.194 Mpps = 82 rps at 256 usteps
+	setVMAX(_vmax); //1 rps
+	setAMAX(_amax); //Set both AMAX and DMAX
+	writeRegister(TMC4361A_XACTUAL,0); //reset position
+	writeRegister(TMC4361A_X_TARGET,0);//reset target
+	delay(500);
+	powerOnMOSFET();//Disable the MOSFET to prevent the motor from over heating
+
+}
+
+void TMC4361A::beginCL() {
 	//resetController();
 
 	SPI.begin();
@@ -43,19 +76,10 @@ void TMC4361A::begin() {
 	writeRegister(TMC4361A_STP_LENGTH_ADD,((DIR_SETUP_TIME << 16) | STP_LENGTH_ADD));
 	clearEvent();
 	init_closedLoop();
-	//powerOffMOSFET();
-
-	//writeRegister(TMC4361A_RAMPMODE,0b101); //Trapezoidal motion profile in positioning mode
-	//max value for 16 MHz : 4.194 Mpps = 82 rps at 256 usteps
-	//setVMAX(_vmax); //1 rps
-	//setAMAX(_amax); //Set both AMAX and DMAX
-	//writeRegister(TMC4361A_XACTUAL,0); //reset position
-	//writeRegister(TMC4361A_X_TARGET,0);//reset target
 	delay(500);
 	//powerOnMOSFET();//Disable the MOSFET to prevent the motor from over heating
 
 }
-
 void TMC4361A::init_TMC2660() {
 
 //TMC4361A_COVER_LOW_WR
@@ -98,7 +122,7 @@ void TMC4361A::init_EncoderSPI() {
 
 void TMC4361A::init_EncoderSSI() {
 	//Posital encoder need 8 blank clock cycle to generate data, 16 muliturn bits and 17 single turn
-	uint32_t ENC_IN_CONF = 0x00001400; //default 0x00010400 -> 4 = ENC_POS is latched to enc_latch / 1 = multiturn data /
+	uint32_t ENC_IN_CONF = 0x00081400; //default 0x00010400 -> 4 = ENC_POS is latched to enc_latch / 1 = multiturn data /
 	writeRegister(TMC4361A_ENC_IN_CONF,ENC_IN_CONF); //0x00015400  -- 0x00010400internal multiturn calc with enc pos latched on N event ??
 	writeRegister(TMC4361A_ENC_IN_RES_WR, 0x00020000); //resolution 131072 ENC_Const calculated automatically = 0.39
 	uint8_t SINGLETURN_RES = 0x10; // 17-1 = 16
@@ -108,16 +132,15 @@ void TMC4361A::init_EncoderSSI() {
 	uint8_t SERIAL_DATA_BITS = 0x00; //0 DAta bits for encoder config SPI only
 	uint32_t ENC_IN_DATA = SINGLETURN_RES | MULTITURN_RES<<5 | STATUS_BIT_CNT <<10 |SERIAL_ADDR_BITS <<16 |SERIAL_DATA_BITS << 24;
 	writeRegister(TMC4361A_ENC_IN_DATA,ENC_IN_DATA);//0x0008000F
-	writeRegister(TMC4361A_ADDR_TO_ENC, ENCODER_ANGLE_ADDR); //For angle data (0x2C for multiturn data)
-	//Posital encoder goes at max 1MHz for comm -> 20 MHz clock
-	uint32_t SER_CLK_IN_HIGH = 0x0028; //500kHz for 20MHz clock
-  uint32_t SER_CLK_IN_LOW = 0x0028;
+	//20MHz clock -> Period = 50ns
+	//Posital encoder goes at max 10MHz for comm -> 20 MHz clock
+	uint32_t SER_CLK_IN_HIGH = 0x000A; //1MHz from 20MHz clock
+  uint32_t SER_CLK_IN_LOW = 0x000A; // then 10 clock for high and 10 for low
 	writeRegister(TMC4361A_SER_CLK_IN_HIGH_WR,(SER_CLK_IN_LOW<<16)|SER_CLK_IN_HIGH);
-	uint32_t SSI_IN_CLK_DELAY = 0x0140|0x00F0<<16; //8*40 clock cycle
+	uint32_t SSI_IN_CLK_DELAY = 0x00B4; //9*20 clock cycle before start
 	writeRegister(TMC4361A_SSI_IN_CLK_DELAY_WR, SSI_IN_CLK_DELAY); //8*40 clock between cs low & start of data transfer
-	//writeRegister(TMC4361A_SER_PTIME_WR, 0x13880);// 5ms between call
-	writeRegister(TMC4361A_SER_PTIME_WR,0x01900); //400us between call
-	writeRegister(TMC4361A_GENERAL_CONF,0x00006020|0x00300C00);//Encoder in SSI mode
+	writeRegister(TMC4361A_SER_PTIME_WR,0x007D0); //100us between call
+	writeRegister(TMC4361A_GENERAL_CONF,0x00006020|0x00300400);//Encoder in SSI mode
 }
 
 
