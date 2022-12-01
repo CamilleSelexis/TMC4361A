@@ -7,9 +7,10 @@
 #include "TMC2660_REG.h"
 
 
-#define VMAX_DEFAULT 0x01900000 // 2 turn/s 23 digits / 8 decimal max value for 16 MHz : 4.194 Mpps = 82 rps at 256 usteps
+#define VMAX_DEFAULT 0x01000000 // 2 turn/s 23 digits / 8 decimal max value for 16 MHz : 4.194 Mpps = 82 rps at 256 usteps
 //#define VMAX_DEFAULT 0x00C80000
-#define AMAX_DEFAULT 0x000FFFFF //max value for 16 MHz : 2.097 Mpps2
+//#define AMAX_DEFAULT 0x0000FFFF
+#define AMAX_DEFAULT 0x0000FFFC //22 digits / 2 decimalmax value for 16 MHz : 2.097 Mpps2
 #define AMAX_SLOW 	 0x0000FFFF
 
 #define CLK_FREQ 	 20000000
@@ -60,9 +61,10 @@ class TMC4361A
 		    ACTIVE_STALL_F,
 		    HOME_ERROR_F,
 		    FS_ACTIVE_F,
-		    ENC_FAIL_F,
+		    ENC_FAIL_F = 14,
 		    N_ACTIVE_F,
 		    ENC_LATCH_F,
+		    SER_ENC_VAR_F = 17
 	  	};
 
 	  	enum EventType {
@@ -102,6 +104,7 @@ class TMC4361A
 		TMC4361A(uint8_t cs, uint8_t tgt_pin);
 		//call this function to init the controller
 		void begin();
+		void begin_closedLoop();
 		//call this function to init the driver
 		
 		void init_TMC2660();
@@ -111,11 +114,11 @@ class TMC4361A
 		void resetController();
 		void powerOffMOSFET();
 		void powerOnMOSFET();
-		void setTarget(uint32_t xtarget);
-		void setTargetRelative(uint32_t xrelative);
-		uint32_t getCurrentPos();
+		void setTarget(long xtarget);
+		void setTargetRelative(long xrelative);
+		long getCurrentPos();
 		void setCurrentPos(long pos);
-		uint32_t getCurrentTarget();
+		long getCurrentTarget();
 		void setVMAX(uint32_t vmax, byte format);
 		void setVMAX(uint32_t vmax);
 		uint32_t getVMAX();
@@ -136,6 +139,9 @@ class TMC4361A
 		uint32_t getEncoderDev();
 		bool checkFlag(TMC4361A::FlagType flag);
 		bool isTargetReached();
+		bool isEncoderFail();
+		bool isSerialEncoderVar();
+		void clearEvent();
 		//
 		void writeRegister(const byte address, const long data);
   		long readRegister(const byte address);

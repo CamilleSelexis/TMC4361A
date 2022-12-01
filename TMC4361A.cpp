@@ -27,28 +27,32 @@ void TMC4361A::begin() {
 	//Reset the controller
 	writeRegister(TMC4361A_RESET_REG,0x52535400); // reset code
 	delay(200);
+	clearEvent();
+	//writeRegister(TMC4361A_EVENT_CLEAR_CONF,0b1<<14 | 1 << 17); //ENC_FAIL & SER_ENC_VAR is not cleared when reading event
+
 	writeRegister(TMC4361A_SPIOUT_CONF,0x8440010B);//844->SPI timing 10B-> 1us between poll TMC26x S/D output
 	writeRegister(TMC4361A_STEP_CONF, 0x00FB0C80);// 200 steps/rev 256 usteps
-	writeRegister(TMC4361A_CLK_FREQ,CLK_FREQ); //16.7MHz external clock
+	writeRegister(TMC4361A_CLK_FREQ,CLK_FREQ); //20MHz external clock
 
-	init_EncoderSPI();//Init the encoder
+	//init_EncoderSPI();//Init the encoder
+	
 	init_TMC2660();//Init the driver
-	powerOffMOSFET();
-
 	//Movement parameters
 	uint32_t DIR_SETUP_TIME = 2;//#clock cycle step pulse wait after dir change
 	uint32_t STP_LENGTH_ADD = 1;//#clock cycle step pulse is held
 	writeRegister(TMC4361A_STP_LENGTH_ADD,((DIR_SETUP_TIME << 16) | STP_LENGTH_ADD));
-	writeRegister(TMC4361A_RAMPMODE,0b101); //Trapezoidal motion profile in positioning mode
+	clearEvent();
+	init_closedLoop();
+	//powerOffMOSFET();
+
+	//writeRegister(TMC4361A_RAMPMODE,0b101); //Trapezoidal motion profile in positioning mode
 	//max value for 16 MHz : 4.194 Mpps = 82 rps at 256 usteps
-	setVMAX(_vmax); //1 rps
-	setAMAX(_amax); //Set both AMAX and DMAX
-	writeRegister(TMC4361A_XACTUAL,0); //reset position
-	//writeRegister(TMC4361A_ENC_POS,0); //Set enc pos to xactual
-	writeRegister(TMC4361A_CL_OFFSET,0);
-	writeRegister(TMC4361A_X_TARGET,0);//reset target
+	//setVMAX(_vmax); //1 rps
+	//setAMAX(_amax); //Set both AMAX and DMAX
+	//writeRegister(TMC4361A_XACTUAL,0); //reset position
+	//writeRegister(TMC4361A_X_TARGET,0);//reset target
 	delay(500);
-	powerOnMOSFET();//Disable the MOSFET to prevent the motor from over heating
+	//powerOnMOSFET();//Disable the MOSFET to prevent the motor from over heating
 
 }
 
@@ -59,7 +63,7 @@ void TMC4361A::init_TMC2660() {
 	writeRegister(TMC4361A_COVER_LOW_WR,CHOPCONF_REG); //CHOPCONF
 	SGSCONF_REG = 0x000D4107;
 	writeRegister(TMC4361A_COVER_LOW_WR,SGSCONF_REG); //SGSCONF Current Scale
-	DRVCONF_REG = 0x000E0010;
+	DRVCONF_REG = 0x000E0000; //Msteps readback
 	writeRegister(TMC4361A_COVER_LOW_WR,DRVCONF_REG); //DRVCONF SG & SPI interface
 	DRVCTRL_REG = 0x00000000;
 	writeRegister(TMC4361A_COVER_LOW_WR,DRVCTRL_REG); //DRVCTRL 256 usteps
@@ -71,7 +75,7 @@ void TMC4361A::init_TMC2660() {
 }
 
 void TMC4361A::init_EncoderSPI() {
-	uint32_t ENC_IN_CONF = 0x00011400; //default 0x00010400 -> 4 = ENC_POS is latched to enc_latch / 1 = multiturn data / 1 = internal multiturn /
+	uint32_t ENC_IN_CONF = 0x00014400; //default 0x00010400 -> 4 = ENC_POS is latched to enc_latch / 1 = multiturn data / 1 = internal multiturn /
 	writeRegister(TMC4361A_ENC_IN_CONF,0x00014400); //0x00015400  -- 0x00010400internal multiturn calc with enc pos latched on N event ??
 	writeRegister(TMC4361A_ENC_IN_RES_WR, 0x00001000); //resolution 4096 ENC_Const calculated automatically = 12.5
 	uint8_t SINGLETURN_RES = 0x0B; // 12-1 = 11
@@ -113,66 +117,82 @@ void TMC4361A::init_EncoderSSI() {
 	writeRegister(TMC4361A_SSI_IN_CLK_DELAY_WR, SSI_IN_CLK_DELAY); //8*40 clock between cs low & start of data transfer
 	//writeRegister(TMC4361A_SER_PTIME_WR, 0x13880);// 5ms between call
 	writeRegister(TMC4361A_SER_PTIME_WR,0x01900); //400us between call
-	writeRegister(TMC4361A_GENERAL_CONF,0x00006020|0x00300400);//Encoder in SSI mode
+	writeRegister(TMC4361A_GENERAL_CONF,0x00006020|0x00300C00);//Encoder in SSI mode
 }
+
+
 
 void TMC4361A::init_closedLoop() {
 	 // Closed Loop calibration of TMC4361 Motion Controller
-	writeRegister(TMC4361A_ENC_IN_RES_WR,0x00001000); // Encoder resolution = 4096/rev
-	writeRegister(TMC4361A_CL_BETA,0x00FF00FF); //CL_BETA = CL_GAMMA = 255
-	writeRegister(TMC4361A_VMAX,0x00100000); //Slow speed 4096 Us/s
+
+	//Standard SPI encoder configuration
+	uint32_t ENC_IN_CONF = 0x00011000; //default 0x00010400 -> 4 = ENC_POS is latched to enc_latch / 1 = multiturn data / 1 = internal multiturn /
+	writeRegister(TMC4361A_ENC_IN_CONF,ENC_IN_CONF); //0x00015400  -- 0x00010400internal multiturn calc with enc pos latched on N event ??
+	writeRegister(TMC4361A_ENC_IN_RES_WR, 0x00001000); //resolution 4096 ENC_Const calculated automatically = 12.5
+	uint8_t SINGLETURN_RES = 0x0B; // 12-1 = 11
+	uint8_t MULTITURN_RES = 0x03; //4-1 = 3
+	uint8_t STATUS_BIT_CNT = 0x00; //Status bits set as multiturn bits, but unused nonetheless
+	uint8_t SERIAL_ADDR_BITS = 0x08; //8 bits for the address
+	uint8_t SERIAL_DATA_BITS = 0x00; //0 DAta bits for encoder config
+	uint32_t ENC_IN_DATA = SINGLETURN_RES | MULTITURN_RES<<5 | STATUS_BIT_CNT <<10 |SERIAL_ADDR_BITS <<16 |SERIAL_DATA_BITS << 24;
+	writeRegister(TMC4361A_ENC_IN_DATA,ENC_IN_DATA);//0x0008000F
+	writeRegister(TMC4361A_ADDR_TO_ENC, ENCODER_ANGLE_ADDR); //For angle data (0x2C for multiturn data)
+	uint32_t SER_CLK_IN_HIGH = 0x0002;
+  uint32_t SER_CLK_IN_LOW = 0x0002;
+	writeRegister(TMC4361A_SER_CLK_IN_HIGH_WR,(SER_CLK_IN_LOW<<16)|SER_CLK_IN_HIGH);
+	writeRegister(TMC4361A_SSI_IN_CLK_DELAY_WR, 0x00F00004); //4 clock between cs low & start of data transfer
+	//writeRegister(TMC4361A_SER_PTIME_WR, 0x13880);// 5ms between call
+	writeRegister(TMC4361A_SER_PTIME_WR,0x003E8); //50us between call
+
+	writeRegister(TMC4361A_GENERAL_CONF,0x00006020|0x00300C00);//Encoder in SPI mode
+	delay(500);
+	clearEvent();
+	//Closed loop configuration -> basic calibration
+	writeRegister(TMC4361A_CL_BETA,0x000000FF); //CL_BETA = 255
 	writeRegister(TMC4361A_CL_DELTA_P_WR,0x00010000); //CL_DELTA_P = 1
-	writeRegister(TMC4361A_ENC_IN_CONF,0x00400000); //Closed loop on
- /*
- 
- sendData(0xA0,0x00000004); // hold + position mode
+	uint32_t CL_CYCLE = 0x03E80000;
+	writeRegister(TMC4361A_CL_CYCLE_WR,CL_CYCLE); //Update encoder value every 50 us
+	writeRegister(TMC4361A_RAMPMODE,0b100); //Change rampmode for calibration
+	writeRegister(TMC4361A_VMAX,0x00100000); //Slow speed 4096 Us/s for calibration
 
- sendData(0xA4,0x00100000); // slow velocity
+	//Put TMC2660 read response in uSteps format
+	/*uint32_t MSCNT = readRegister(TMC4361A_COVER_LOW_WR);
+	writeRegister(TMC4361A_X_TARGET,384-(MSCNT>>10)%256); // the 10 MSB are the msteps
+ 	delay(50);*/
+ 	ENC_IN_CONF = ENC_IN_CONF | 0x00400000; //regulation modus = cl
+ 	writeRegister(TMC4361A_ENC_IN_CONF,ENC_IN_CONF);
+ 	ENC_IN_CONF = ENC_IN_CONF | 0x01000000; //CL_calibration enable
+ 	writeRegister(TMC4361A_ENC_IN_CONF,ENC_IN_CONF); //Start cl calibration
+ 	delay(50);
+ 	ENC_IN_CONF = ENC_IN_CONF & 0xFEFFFFFF; //Clear cl_calibration
+ 	writeRegister(TMC4361A_ENC_IN_CONF,ENC_IN_CONF); //Turn off cl calibration*/
+ 	writeRegister(TMC4361A_VMAX,0x00000000); //VMAX to 0
 
- sendData(0xDC,0x00010000); // cl_p = 1.0
+ 	//Setup max value between 2 encoder calls
+ 	//SER_ENC_VARIATION = 10 -> 255*1/8*4096/256 = 512
+ 	writeRegister(TMC4361A_CL_CYCLE_WR,CL_CYCLE | 0x000000FF); //defines the multiplier for max tolerated value shouldn't be greater than 180° = 524288 uSTeps
+ 	ENC_IN_CONF = ENC_IN_CONF | 0x80000000;
+ 	writeRegister(TMC4361A_ENC_IN_CONF,ENC_IN_CONF);
 
- sendData(0x87,0x00400000); // turn on closed loop
- 
- sendData(0xB7,0x00000080); // move to full step position
+ 	//Setup closed loop operation
+ 	writeRegister(TMC4361A_RAMPMODE,0b101); //Set trapez ramp with POS mode
+ 	writeRegister(TMC4361A_VMAX,VMAX_DEFAULT); //2 turn/s
+ 	writeRegister(TMC4361A_AMAX,AMAX_DEFAULT);
+ 	writeRegister(TMC4361A_DMAX,AMAX_DEFAULT);
 
- sendData(0x87,0x01400000); // turn on closed loop calibration
+ 	//Set max encoder variation
+ 	writeRegister(TMC4361A_CL_TR_TOLERANCE_WR,0x000000FF); //CL tolerance for target reached event = 256 target reached if within 1 FS
+ 	writeRegister(TMC4361A_ENC_POS_DEV_TOL_WR,0x00002000); //Max tolerated dev is 8192 before ENC_FAIL_Flag is set
+ 	writeRegister(TMC4361A_CL_TOLERANCE_WR,0x00000020); //cl_tolerance = 128 max dev before CL_delta is maxed
+ 	writeRegister(TMC4361A_CL_DELTA_P_WR,0x00010000); //cl_p = 1
+ 	writeRegister(TMC4361A_CL_VMAX_CALC_P_WR,0x00000032); //50 prop term for vel limit
+ 	writeRegister(TMC4361A_CL_VMAX_CALC_I_WR,0x00000032); //50 int term for vel limit
+ 	writeRegister(TMC4361A_PID_I_CLIP_WR,0x000000FF); //255 clipping value for int term vel limit
+ 	writeRegister(TMC4361A_PID_DV_CLIP_WR,0x00002710); //cl_vlimit = 10000 pps
 
- sendData(0x87,0x00400000); // turn off closed loop calibration
-
- sendData(0xA4,0x00000000); // v = 0
-
-
- // Setup Closed Loop Operation
- sendData(0xA0,0x00000006); // S-Ramp + POS Mode
- sendData(0xA4, 0x7A12000); // VMAX = 500000 pps
-
- sendData(0xA8,0x00000200); // AMAX
- sendData(0xA9,0x00000200); // DMAX
- 
- sendData(0xAD,0x00000100); // bow1
- sendData(0xAE,0x00000100); // bow2
- sendData(0xAF,0x00000100); // bow3
- sendData(0xB0,0x00000100); // bow4
- 
- sendData(0xE0,0x00250000); // emf_vmin = 
- sendData(0xE1,0x00450000); // emf_vadd = -> emf_vmax = 
- 
- sendData(0xE2,0x00FFFFFF); // emf_vel0_timer
- sendData(0xE3,0x02000864); // enc vel filter settings
- 
- sendData(0xDF,0x00000014); // cl_tolerance = 20
- sendData(0xDC,0x00010000); // cl_p = 1.0
- sendData(0xDA,0x000000C8); // cl_vlimit_p = 200
- sendData(0xDB,0x00000032); // cl_vlimit_i = 50
- sendData(0xDD,0x000003E8); // cl_vlimit_diclip = 1000
- sendData(0xDE,0x00100000); // cl_vlimit = 1048576 pps
-
- sendData(0x86,0x0032f064); // cl scaling values
- sendData(0x98,0x00001000); // cl_upscale
- sendData(0x99,0x00100000); // cl_dnscale
- 
- sendData(0x87,0x0A400000); // cl with gamma correction and vlimit
- sendData(0x85,0x00000080); // cl scaling on*/
+ 	ENC_IN_CONF = ENC_IN_CONF | 0x08000000; //Enable catch up velocity
+ 	writeRegister(TMC4361A_ENC_IN_CONF,ENC_IN_CONF);
+ 	clearEvent();
 }
 
 void TMC4361A::resetController() {
@@ -191,25 +211,25 @@ void TMC4361A::powerOnMOSFET() {
 	delay(2);
 }
 //Set target absolute
-void TMC4361A::setTarget(uint32_t xtarget) { 
+void TMC4361A::setTarget(long xtarget) { 
 	powerOnMOSFET();
 	writeRegister(TMC4361A_X_TARGET, xtarget);
 }
 //Set target relative to current position
-void TMC4361A::setTargetRelative(uint32_t xrelative) {
-	uint32_t xtarget = getCurrentPos() + xrelative;
+void TMC4361A::setTargetRelative(long xrelative) {
+	long xtarget = getCurrentPos() + xrelative;
 	powerOnMOSFET();
 	writeRegister(TMC4361A_X_TARGET,xtarget);
 }
 
-uint32_t TMC4361A::getCurrentPos(){
+long TMC4361A::getCurrentPos(){
 	return readRegister(TMC4361A_XACTUAL);
 }
 void TMC4361A::setCurrentPos(long pos){
 	writeRegister(TMC4361A_XACTUAL,pos);
 }
 
-uint32_t TMC4361A::getCurrentTarget(){
+long TMC4361A::getCurrentTarget(){
 	return readRegister(TMC4361A_X_TARGET);
 }
 
@@ -355,8 +375,21 @@ uint8_t TMC4361A::getCurrentScale(){
 	return SGSCONF_REG&0x0000001f;
 }
 
+void TMC4361A::clearEvent(){
+	uint32_t events = readRegister(TMC4361A_EVENTS);
+}
+
 bool TMC4361A::checkFlag(TMC4361A::FlagType flag) {
 	return readRegisterBit(TMC4361A_STATUS, flag);
+}
+
+bool TMC4361A::isEncoderFail(){
+	return checkFlag(ENC_FAIL_F);
+}
+
+
+bool TMC4361A::isSerialEncoderVar(){
+	return checkFlag(SER_ENC_VAR_F);
 }
 
 bool TMC4361A::isTargetReached()
@@ -413,4 +446,105 @@ long TMC4361A::spiTransfer(const byte address, const long data)
   SPI.endTransaction();
 
   return returnBuffer;
+}
+
+void TMC4361A::begin_closedLoop(){
+	SPI.begin();
+	_spiSettings = SPISettings(1000000,MSBFIRST,SPI_MODE3);
+	//SPI.beginTransaction(_spiSettings);
+	uint32_t event;
+	//Reset the controller
+	writeRegister(TMC4361A_RESET_REG,0x52535400); // reset code
+	delay(200);
+	writeRegister(TMC4361A_SPIOUT_CONF,0x4220000A);//844->SPI timing A -> SPI mode with current 
+	writeRegister(TMC4361A_STEP_CONF, 0x00FB0C80);// 200 steps/rev 256 usteps
+	writeRegister(TMC4361A_CLK_FREQ,CLK_FREQ); //20MHz external clock
+	writeRegister(TMC4361A_INTR_CONF,0x02000000); //Coverdone as intr
+	event = readRegister(TMC4361A_EVENTS); //Clear events
+
+	//param TMC2660
+	DRVCTRL_REG = 0x00000000;
+	writeRegister(TMC4361A_COVER_LOW_WR,DRVCTRL_REG); //DRVCTRL 256 usteps
+	delay(50);
+	event = readRegister(TMC4361A_EVENTS); //Clear events
+
+	CHOPCONF_REG = 0x00090585;
+	writeRegister(TMC4361A_COVER_LOW_WR,CHOPCONF_REG); //CHOPCONF
+	delay(50);
+	event = readRegister(TMC4361A_EVENTS); //Clear events
+
+	SMARTEN_REG = 0x000A0000;
+	writeRegister(TMC4361A_COVER_LOW_WR,SMARTEN_REG); //coolStep Control Register
+	delay(50);
+	readRegister(TMC4361A_EVENTS); //Clear events
+
+	SGSCONF_REG = 0x000C0018;
+	writeRegister(TMC4361A_COVER_LOW_WR,SGSCONF_REG); //SGSCONF Current Scale
+	delay(50);
+	event = readRegister(TMC4361A_EVENTS); //Clear events	
+	DRVCONF_REG = 0x000EF080;
+	writeRegister(TMC4361A_COVER_LOW_WR,DRVCONF_REG); //DRVCONF SG & SPI interface
+	delay(50);
+	event = readRegister(TMC4361A_EVENTS); //Clear events	
+	
+	//Param abs encoder in SPI mode
+	uint32_t ENC_IN_CONF = 0x00014400; //default 0x00010400 -> 4 = ENC_POS is latched to enc_latch / 1 = multiturn data / 1 = internal multiturn /
+	writeRegister(TMC4361A_ENC_IN_CONF,ENC_IN_CONF); //0x00015400  -- 0x00010400internal multiturn calc with enc pos latched on N event ??
+	writeRegister(TMC4361A_ENC_IN_RES_WR, 0x00001000); //resolution 4096 ENC_Const calculated automatically = 12.5
+	uint8_t SINGLETURN_RES = 0x0B; // 12-1 = 11
+	uint8_t MULTITURN_RES = 0x03; //4-1 = 3
+	uint8_t STATUS_BIT_CNT = 0x00; //Status bits set as multiturn bits, but unused nonetheless
+	uint8_t SERIAL_ADDR_BITS = 0x08; //8 bits for the address
+	uint8_t SERIAL_DATA_BITS = 0x00; //0 DAta bits for encoder config
+	uint32_t ENC_IN_DATA = SINGLETURN_RES | MULTITURN_RES<<5 | STATUS_BIT_CNT <<10 |SERIAL_ADDR_BITS <<16 |SERIAL_DATA_BITS << 24;
+	writeRegister(TMC4361A_ENC_IN_DATA,ENC_IN_DATA);//0x0008000F
+	writeRegister(TMC4361A_ADDR_TO_ENC, ENCODER_ANGLE_ADDR); //For angle data (0x2C for multiturn data)
+	uint32_t SER_CLK_IN_HIGH = 0x0004;
+  uint32_t SER_CLK_IN_LOW = 0x0004;
+	writeRegister(TMC4361A_SER_CLK_IN_HIGH_WR,(SER_CLK_IN_LOW<<16)|SER_CLK_IN_HIGH);
+	writeRegister(TMC4361A_SSI_IN_CLK_DELAY_WR, 0x00F00010); //8*16 clock between cs low & start of data transfer
+	//writeRegister(TMC4361A_SER_PTIME_WR, 0x01900);// 400us between call
+	writeRegister(TMC4361A_SER_PTIME_WR,0x003E8); //50us between call
+	writeRegister(TMC4361A_GENERAL_CONF,0x00006020|0x00300C00);//Encoder in SPI mode
+	
+	//Start Closed loop setup
+	writeRegister(TMC4361A_CL_BETA,0x000000FF); //CL_BETA = 255
+	writeRegister(TMC4361A_CL_DELTA_P_WR,0x00014000); //CL_DELTA_P = 1.25
+	writeRegister(TMC4361A_CL_TOLERANCE_WR,0x00000020); //cl_tolerance = 32 > ENC_CONST = 
+
+	writeRegister(TMC4361A_CL_VMAX_CALC_P_WR,0x000003E8); //P for vel limit = 1000;
+	writeRegister(TMC4361A_CL_VMAX_CALC_I_WR,0x00000032);//I for vel limit = 50
+	writeRegister(TMC4361A_PID_DV_CLIP_WR,0x0000C350);//Max vel +50kpps
+	writeRegister(TMC4361A_PID_I_CLIP_WR,0x000003E8); //Clipping = 1000
+
+	writeRegister(TMC4361A_CURRENT_CONF,0x00000000); //disable current scaling
+	writeRegister(TMC4361A_RAMPMODE,0b100); //Change rampmode for init
+	writeRegister(TMC4361A_VMAX,0x00100000); //Slow speed 4096 Us/s
+	uint32_t MSCNT = readRegister(TMC4361A_MSCNT_RD);
+	uint32_t xactual = readRegister(TMC4361A_XACTUAL);
+ 	writeRegister(TMC4361A_X_TARGET,xactual + 384 - (MSCNT%256)); //Move to full step
+ 	delay(5000); //Wait for full step done
+ 	writeRegister(TMC4361A_VMAX,0x00000000); //VMAX to 0
+ 	MSCNT = readRegister(TMC4361A_MSCNT_RD);
+ 	writeRegister(TMC4361A_XACTUAL,MSCNT);
+ 	writeRegister(TMC4361A_ENC_IN_CONF,ENC_IN_CONF || 0x00400000); //Turn on cl operation
+ 	writeRegister(TMC4361A_ENC_IN_CONF,ENC_IN_CONF || 0x08000000); //Turn on velocity limit
+
+ 	writeRegister(TMC4361A_SCALE_VALUES,0x0064FF64);//Set current scaling values
+ 	writeRegister(TMC4361A_CL_UPSCALE_DELAY,0x000003E8); //cl_upscale
+ 	writeRegister(TMC4361A_CL_DOWNSCALE_DELAY,0x000186A0); //cl_downscale
+ 	writeRegister(TMC4361A_CURRENT_CONF,0x00000080); //Enable current scaling
+ 	
+ 	writeRegister(TMC4361A_CL_TR_TOLERANCE_WR,0x0000003C); //CL_TOLERANCE = 60 3 encoder transitions
+ 	//Set Ramp values
+ 	writeRegister(TMC4361A_RAMPMODE,0b101); //Set back S ramp with POS mode
+ 	writeRegister(TMC4361A_VMAX,VMAX_DEFAULT); //2 turn/s
+ 	writeRegister(TMC4361A_AMAX,AMAX_DEFAULT);
+ 	writeRegister(TMC4361A_DMAX,AMAX_DEFAULT);
+/*
+ 	writeRegister(TMC4361A_BOW1,0x00000100); //bow 1
+ 	writeRegister(TMC4361A_BOW2,0x00000100);
+ 	writeRegister(TMC4361A_BOW3,0x00000100);
+ 	writeRegister(TMC4361A_BOW4,0x00000100);	*/
+
 }
