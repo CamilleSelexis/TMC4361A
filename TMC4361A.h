@@ -7,10 +7,10 @@
 #include "TMC2660_REG.h"
 
 
-#define VMAX_DEFAULT 0x01000000 // 2 turn/s 23 digits / 8 decimal max value for 16 MHz : 4.194 Mpps = 82 rps at 256 usteps
+#define VMAX_DEFAULT 0x04000000 // 2 turn/s 23 digits / 8 decimal max value for 16 MHz : 4.194 Mpps = 82 rps at 256 usteps
 //#define VMAX_DEFAULT 0x00C80000
 //#define AMAX_DEFAULT 0x0000FFFF
-#define AMAX_DEFAULT 0x0000FFFC //22 digits / 2 decimalmax value for 16 MHz : 2.097 Mpps2
+#define AMAX_DEFAULT 0x00FFFFFF //22 digits / 2 decimalmax value for 16 MHz : 2.097 Mpps2
 #define AMAX_SLOW 	 0x0000FFFF
 
 #define CLK_FREQ 	 20000000
@@ -132,6 +132,7 @@ class TMC4361A
 		void setUsteps(int usteps);
 		int getUsteps();
 		float getEncoderAngle();
+		float getEncoderAngleSSI();
 		float getEncoderTurn();
 		uint32_t getEncoderPos();
 		uint32_t getEncoderData();

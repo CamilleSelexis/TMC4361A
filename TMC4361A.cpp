@@ -29,7 +29,7 @@ void TMC4361A::begin() {
 	delay(200);
 	writeRegister(TMC4361A_SPIOUT_CONF,0x8440010B);//844->SPI timing 10B-> 1us between poll TMC26x S/D output
 	writeRegister(TMC4361A_STEP_CONF, 0x00FB0C80);// 200 steps/rev 256 usteps
-	writeRegister(TMC4361A_CLK_FREQ,CLK_FREQ); //16.7MHz external clock
+	writeRegister(TMC4361A_CLK_FREQ,CLK_FREQ); //20MHz external clock
 
 	//init_EncoderSPI();//Init the encoder
 	init_TMC2660();//Init the driver
@@ -46,7 +46,7 @@ void TMC4361A::begin() {
 	writeRegister(TMC4361A_XACTUAL,0); //reset position
 	writeRegister(TMC4361A_X_TARGET,0);//reset target
 	delay(500);
-	powerOnMOSFET();//Disable the MOSFET to prevent the motor from over heating
+	powerOnMOSFET();//Enable the MOSFET
 
 }
 
@@ -121,12 +121,14 @@ void TMC4361A::init_EncoderSPI() {
 }
 
 void TMC4361A::init_EncoderSSI() {
-	//Posital encoder need 8 blank clock cycle to generate data, 16 muliturn bits and 17 single turn
-	uint32_t ENC_IN_CONF = 0x00081400; //default 0x00010400 -> 4 = ENC_POS is latched to enc_latch / 1 = multiturn data /
+	//Posital encoder need 8 blank clock cycle to generate data, 16 muliturn bits and 17 single turn -> transmission length = 41 bits
+	//Max clock for the encoder before changing the setup time is 1MHz
+	//Max cycle time at 50 us
+	uint32_t ENC_IN_CONF = 0x00001400; //default 0x00010400 -> Encoder gives multiturn data
 	writeRegister(TMC4361A_ENC_IN_CONF,ENC_IN_CONF); //0x00015400  -- 0x00010400internal multiturn calc with enc pos latched on N event ??
 	writeRegister(TMC4361A_ENC_IN_RES_WR, 0x00020000); //resolution 131072 ENC_Const calculated automatically = 0.39
 	uint8_t SINGLETURN_RES = 0x10; // 17-1 = 16
-	uint8_t MULTITURN_RES = 0x0F; //16-1 = 15
+	uint8_t MULTITURN_RES = 0x17; //16-1 = 15 16 + 8 = 24 -1  =23
 	uint8_t STATUS_BIT_CNT = 0x00; //Status bits set as multiturn bits, but unused nonetheless
 	uint8_t SERIAL_ADDR_BITS = 0x00; //0 bits for the address SPI only
 	uint8_t SERIAL_DATA_BITS = 0x00; //0 DAta bits for encoder config SPI only
@@ -137,8 +139,9 @@ void TMC4361A::init_EncoderSSI() {
 	uint32_t SER_CLK_IN_HIGH = 0x000A; //1MHz from 20MHz clock
   uint32_t SER_CLK_IN_LOW = 0x000A; // then 10 clock for high and 10 for low
 	writeRegister(TMC4361A_SER_CLK_IN_HIGH_WR,(SER_CLK_IN_LOW<<16)|SER_CLK_IN_HIGH);
-	uint32_t SSI_IN_CLK_DELAY = 0x00B4; //9*20 clock cycle before start
-	writeRegister(TMC4361A_SSI_IN_CLK_DELAY_WR, SSI_IN_CLK_DELAY); //8*40 clock between cs low & start of data transfer
+	//This should work but it doesn't seem to work with the multiturn data
+	//uint32_t SSI_IN_CLK_DELAY = 0x00B4; //9*20 clock cycle before start - 8 blank clock cycle + 1 clock for setup ?
+	//writeRegister(TMC4361A_SSI_IN_CLK_DELAY_WR, SSI_IN_CLK_DELAY); //9*20 clock between cs low & start of data transfer
 	writeRegister(TMC4361A_SER_PTIME_WR,0x007D0); //100us between call
 	writeRegister(TMC4361A_GENERAL_CONF,0x00006020|0x00300400);//Encoder in SSI mode
 }
@@ -300,6 +303,11 @@ float TMC4361A::getEncoderAngle(){
 	return angle;
 }
 
+float TMC4361A::getEncoderAngleSSI(){
+	uint32_t angle_data = readRegister(TMC4361A_ADDR_FROM_ENC);
+	float angle = float(angle_data & 0x1ffff)*360/131072;
+	return angle;
+}
 //Return the Encoder multiturn position given by the encoder
 float TMC4361A::getEncoderTurn(){
 	writeRegister(TMC4361A_ADDR_TO_ENC,ENCODER_TURN_ADDR);
