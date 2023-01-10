@@ -32,6 +32,7 @@ void TMC4361A::begin() {
 	writeRegister(TMC4361A_CLK_FREQ,CLK_FREQ); //20MHz external clock
 
 	//init_EncoderSPI();//Init the encoder
+	//init_EncoderSSI();
 	init_TMC2660();//Init the driver
 	powerOffMOSFET();
 
@@ -86,6 +87,7 @@ void TMC4361A::init_TMC2660() {
 	CHOPCONF_REG = 0x000901B4;
 	writeRegister(TMC4361A_COVER_LOW_WR,CHOPCONF_REG); //CHOPCONF
 	SGSCONF_REG = 0x000D4107;
+	//SGSCONF_REG = 0x000D410A;
 	writeRegister(TMC4361A_COVER_LOW_WR,SGSCONF_REG); //SGSCONF Current Scale
 	DRVCONF_REG = 0x000E0000; //Msteps readback
 	writeRegister(TMC4361A_COVER_LOW_WR,DRVCONF_REG); //DRVCONF SG & SPI interface
@@ -124,11 +126,11 @@ void TMC4361A::init_EncoderSSI() {
 	//Posital encoder need 8 blank clock cycle to generate data, 16 muliturn bits and 17 single turn -> transmission length = 41 bits
 	//Max clock for the encoder before changing the setup time is 1MHz
 	//Max cycle time at 50 us
-	uint32_t ENC_IN_CONF = 0x00001400; //default 0x00010400 -> Encoder gives multiturn data
+	uint32_t ENC_IN_CONF = 0x00001000; //default 0x00010400 -> Encoder gives multiturn data
 	writeRegister(TMC4361A_ENC_IN_CONF,ENC_IN_CONF); //0x00015400  -- 0x00010400internal multiturn calc with enc pos latched on N event ??
 	writeRegister(TMC4361A_ENC_IN_RES_WR, 0x00020000); //resolution 131072 ENC_Const calculated automatically = 0.39
 	uint8_t SINGLETURN_RES = 0x10; // 17-1 = 16
-	uint8_t MULTITURN_RES = 0x17; //16-1 = 15 16 + 8 = 24 -1  =23
+	uint8_t MULTITURN_RES = 0x18; //16-1 = 15 16 + 8 = 24 -1  =23
 	uint8_t STATUS_BIT_CNT = 0x00; //Status bits set as multiturn bits, but unused nonetheless
 	uint8_t SERIAL_ADDR_BITS = 0x00; //0 bits for the address SPI only
 	uint8_t SERIAL_DATA_BITS = 0x00; //0 DAta bits for encoder config SPI only
