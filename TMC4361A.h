@@ -7,10 +7,13 @@
 #include "TMC2660_REG.h"
 
 
-#define VMAX_DEFAULT 0x04000000 // 2 turn/s 23 digits / 8 decimal max value for 16 MHz : 4.194 Mpps = 82 rps at 256 usteps 3FFED000 max value
-//#define VMAX_DEFAULT 0x00C80000
-#define AMAX_DEFAULT 0x00FFFFFF //22 digits / 2 decimalmax value for 16 MHz : 2.097 Mpps2
-#define AMAX_SLOW 	 0x0000FFFF
+
+//#define VMAX_DEFAULT 0x04000000 // 262144/s = 5 turn/s 23 digits / 8 decimal max value for 16 MHz : 4.194 Mpps = 82 rps at 256 usteps 3FFED000 max value
+#define VMAX_DEFAULT	 0x08000000 // 524288/s = 10 turn/s
+#define VMAX_SLOW	 0x00C80000 //51200/s = 1turn/s
+//#define VMAX_DEFAULT 0x04000000
+#define AMAX_DEFAULT 0x00100000 //262144/s2 22 digits / 2 decimal max value for 16 MHz : 2.097 Mpps2
+#define AMAX_SLOW 	 0x00010000 //16384/s2 = 1/4 turn/s2
 
 #define CLK_FREQ 	 20000000
 #define ENCODER_ANGLE_ADDR 0x20
@@ -57,7 +60,7 @@ class TMC4361A
 		    STOPR_ACTIVE_F,
 		    VSTOPL_ACTIVE_F,
 		    VSTOPR_ACTIVE_F,
-		    ACTIVE_STALL_F,
+		    ACTIVE_STALL_F = 11,
 		    HOME_ERROR_F,
 		    FS_ACTIVE_F,
 		    ENC_FAIL_F = 14,
@@ -108,8 +111,11 @@ class TMC4361A
 		//call this function to init the driver
 		
 		void init_TMC2660();
-		void init_EncoderSPI();
+
 		void init_EncoderSSI();
+		void init_CLPosital(uint32_t ZeroPos);
+
+		void init_EncoderSPI();
 		void init_closedLoop();
 		void resetController();
 		void powerOffMOSFET();
@@ -142,7 +148,7 @@ class TMC4361A
 		bool isTargetReached();
 		bool isEncoderFail();
 		bool isSerialEncoderVar();
-		void clearEvent();
+		uint32_t clearEvent();
 		//
 		void writeRegister(const byte address, const long data);
   		long readRegister(const byte address);
