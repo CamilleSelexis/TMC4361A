@@ -38,7 +38,7 @@ void TMC4361A::begin() {
 
 	//Movement parameters
 	uint32_t DIR_SETUP_TIME = 20;//#clock cycle step pulse wait after dir change
-	uint32_t STP_LENGTH_ADD = 5;//#clock cycle step pulse is held -> 250 ns?
+	uint32_t STP_LENGTH_ADD = 2;//#clock cycle step pulse is held -> 250 ns?
 	writeRegister(TMC4361A_STP_LENGTH_ADD,((DIR_SETUP_TIME << 16) | STP_LENGTH_ADD));
 	writeRegister(TMC4361A_RAMPMODE,0b101); //Trapezoidal motion profile in positioning mode
 	//max value for 16 MHz : 4.194 Mpps = 82 rps at 256 usteps
@@ -147,7 +147,7 @@ void TMC4361A::init_CLPosital(uint32_t ZeroPos) {
 	writeRegister(TMC4361A_ENC_IN_CONF,ENC_IN_CONF); //
 	writeRegister(TMC4361A_ENC_IN_RES_WR, 0x00020000); //resolution = 131072
 	uint8_t SINGLETURN_RES = 0x10; // 17-1 = 16
-	uint8_t MULTITURN_RES = 0x17; //16 multi + 8 blank = 24
+	uint8_t MULTITURN_RES = 0x17; //16 multi + 8 blank = 24 24-1 = 23 //17
 	uint8_t STATUS_BIT_CNT = 0x00; //Status bits set as multiturn bits, but unused nonetheless
 	uint8_t SERIAL_ADDR_BITS = 0x00; //8 bits for the address
 	uint8_t SERIAL_DATA_BITS = 0x00; //0 DAta bits for encoder config
@@ -158,7 +158,7 @@ void TMC4361A::init_CLPosital(uint32_t ZeroPos) {
 	uint32_t SER_CLK_IN_HIGH = 0x000A;
   uint32_t SER_CLK_IN_LOW = 0x000A;
 	writeRegister(TMC4361A_SER_CLK_IN_HIGH_WR,(SER_CLK_IN_LOW<<16)|SER_CLK_IN_HIGH);
-	//writeRegister(TMC4361A_SSI_IN_CLK_DELAY_WR, 0x000000B4); // 9*20 clock cycle before start -> doesn't work
+	//writeRegister(TMC4361A_SSI_IN_CLK_DELAY_WR, 0x0F0000A0); // 8*20 clock cycle before start -> doesn't work
 	writeRegister(TMC4361A_SER_PTIME_WR,0x007D0); //100us between call
 
 	writeRegister(TMC4361A_GENERAL_CONF,0x00006020|0x00000400);//Encoder in SSI mode
@@ -181,34 +181,6 @@ void TMC4361A::init_CLPosital(uint32_t ZeroPos) {
 	uint32_t CYCLE_VAR = CL_CYCLE<<16 | SER_ENC_VAR;
 	writeRegister(TMC4361A_CL_CYCLE_WR,CYCLE_VAR); //Closed loop cycle = 100us
 	//Calibration Procedure--------------------------------------------------------------
-	/*
-	writeRegister(TMC4361A_RAMPMODE,0b100); //Change rampmode for calibration
-	writeRegister(TMC4361A_VMAX,0x00100000); //Slow speed 4096 Us/s for calibration
-	delay(50);
-	//Put TMC2660 read response in uSteps format
-	uint32_t MSCNT = readRegister(TMC4361A_COVER_LOW_WR);
-
-	SGSCONF_REG = SGSCONF_REG |0x0000001F; //Full current during calibration 0x000D4107
- 	writeRegister(TMC4361A_COVER_LOW_WR,SGSCONF_REG);
-
-	writeRegister(TMC4361A_X_TARGET,384-(MSCNT>>10)%256); // the 10 MSB are the msteps
- 	delay(50); //Move the motor on a full step
-
- 	ENC_IN_CONF = ENC_IN_CONF | 0x00400000; //regulation modus = cl 0x00411000
- 	writeRegister(TMC4361A_ENC_IN_CONF,ENC_IN_CONF);
-
- 	ENC_IN_CONF = ENC_IN_CONF | 0x01000000; //CL_calibration enable 0x01411000
- 	writeRegister(TMC4361A_ENC_IN_CONF,ENC_IN_CONF); //Start cl calibration
- 	delay(5);
- 	writeRegister(TMC4361A_CL_OFFSET,)
- 	delay(50);
- 	ENC_IN_CONF = ENC_IN_CONF & 0xFEFFFFFF; //Clear cl_calibration
- 	writeRegister(TMC4361A_ENC_IN_CONF,ENC_IN_CONF); //Turn off cl calibration 0x00411000
- 	SGSCONF_REG = 0x000D4107; //Reset current scale
- 	writeRegister(TMC4361A_COVER_LOW_WR,SGSCONF_REG);
-
- 	writeRegister(TMC4361A_VMAX,0x00000000); //VMAX to 0
- 	*/
  	//Move the motor to a full step
  	writeRegister(TMC4361A_RAMPMODE,0b100); //Change rampmode for calibration
 	writeRegister(TMC4361A_VMAX,0x00100000); //Slow speed 4096 Us/s for calibration
@@ -220,7 +192,6 @@ void TMC4361A::init_CLPosital(uint32_t ZeroPos) {
  	writeRegister(TMC4361A_COVER_LOW_WR,SGSCONF_REG);
 
  	setTargetRelative(384-(MSCNT>>10)%256); //Move to a full step
-	//writeRegister(TMC4361A_X_TARGET,384-(MSCNT>>10)%256); // the 10 MSB are the msteps
  	delay(50); //Move the motor on a full step
  	ENC_IN_CONF = ENC_IN_CONF | 0x00400000; //regulation modus = cl 0x00411000
  	writeRegister(TMC4361A_ENC_IN_CONF,ENC_IN_CONF);
@@ -245,12 +216,20 @@ void TMC4361A::init_CLPosital(uint32_t ZeroPos) {
  	ENC_IN_CONF = ENC_IN_CONF | 0x80000000; //Serial encoder variation limit enable
  	writeRegister(TMC4361A_ENC_IN_CONF,ENC_IN_CONF);
 
- 	//Setup closed loop operation
- 	writeRegister(TMC4361A_RAMPMODE,0b101); //Set trapez ramp with POS mode
+ 	//Setup motion profile
+ 	/*writeRegister(TMC4361A_RAMPMODE,0b101); //Set trapez ramp with POS mode
  	writeRegister(TMC4361A_VMAX,VMAX_DEFAULT); //2 turn/s
  	writeRegister(TMC4361A_AMAX,AMAX_DEFAULT);
- 	writeRegister(TMC4361A_DMAX,AMAX_DEFAULT);
+ 	writeRegister(TMC4361A_DMAX,AMAX_DEFAULT);*/
 
+ 	writeRegister(TMC4361A_RAMPMODE,0b110); //S-shaped ramp
+ 	writeRegister(TMC4361A_BOW1,AMAX_DEFAULT);
+ 	writeRegister(TMC4361A_BOW2,AMAX_DEFAULT);
+ 	writeRegister(TMC4361A_BOW3,AMAX_DEFAULT);
+ 	writeRegister(TMC4361A_BOW4,AMAX_DEFAULT);
+ 	writeRegister(TMC4361A_AMAX,AMAX_DEFAULT);
+ 	writeRegister(TMC4361A_DMAX,AMAX_DEFAULT);
+ 	writeRegister(TMC4361A_VMAX,VMAX_DEFAULT);
 
  	//Set max encoder variation
  	writeRegister(TMC4361A_CL_TR_TOLERANCE_WR,0x000000FF); //Tolerance for target reached = 256 -> 1FS
@@ -261,10 +240,10 @@ void TMC4361A::init_CLPosital(uint32_t ZeroPos) {
  	writeRegister(TMC4361A_CL_DELTA_P_WR,0x00010000); //cl_p = 1
 
  	//Catch up velocity param
- 	writeRegister(TMC4361A_CL_VMAX_CALC_P_WR,0x00000032); //50 prop term for vel limit
+ 	writeRegister(TMC4361A_CL_VMAX_CALC_P_WR,0x00000400); //16*16 prop term for vel limit
  	writeRegister(TMC4361A_CL_VMAX_CALC_I_WR,0x00000032); //50 int term for vel limit
- 	writeRegister(TMC4361A_PID_I_CLIP_WR,0x000000FF); //255 clipping value for int term vel limit
- 	writeRegister(TMC4361A_PID_DV_CLIP_WR,0x00002710); //cl_vlimit = 10000 pps
+ 	writeRegister(TMC4361A_PID_I_CLIP_WR,0x00500000); //DV_CLIP/PID_I
+ 	writeRegister(TMC4361A_PID_DV_CLIP_WR,0x01000000); //cl_vlimit = 1/10 of max vel
  	ENC_IN_CONF = ENC_IN_CONF | 0x08000000; //Enable catch up velocity limitation
  	writeRegister(TMC4361A_ENC_IN_CONF,ENC_IN_CONF);
  	

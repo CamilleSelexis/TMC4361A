@@ -9,11 +9,11 @@
 
 
 //#define VMAX_DEFAULT 0x04000000 // 262144/s = 5 turn/s 23 digits / 8 decimal max value for 16 MHz : 4.194 Mpps = 82 rps at 256 usteps 3FFED000 max value
-#define VMAX_DEFAULT	 0x08000000 // 524288/s = 10 turn/s
-#define VMAX_SLOW	 0x00C80000 //51200/s = 1turn/s
+#define VMAX_DEFAULT	 0x0F000000 // 524288/s = 12.5 turn/s
+#define VMAX_SLOW	 0x01000000 //51200/s = 1turn/s
 //#define VMAX_DEFAULT 0x04000000
-#define AMAX_DEFAULT 0x00100000 //262144/s2 22 digits / 2 decimal max value for 16 MHz : 2.097 Mpps2
-#define AMAX_SLOW 	 0x00010000 //16384/s2 = 1/4 turn/s2
+#define AMAX_DEFAULT 0x00200000 //262144/s2 22 digits / 2 decimal max value for 16 MHz : 2.097 Mpps2
+#define AMAX_SLOW 	 0x00040000 //16384/s2 = 1/4 turn/s2
 
 #define CLK_FREQ 	 20000000
 #define ENCODER_ANGLE_ADDR 0x20
