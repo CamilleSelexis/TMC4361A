@@ -462,7 +462,7 @@ void TMC4361A::alignEncoder(){
 	writeRegister(TMC4361A_ENC_POS,Xactual);
 }
 
-uint32_t TMC4361A::getEncoderDev(){
+long TMC4361A::getEncoderDev(){
 	return readRegister(TMC4361A_ENC_POS_DEV_RD);
 }
 
