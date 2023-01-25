@@ -148,7 +148,7 @@ void TMC4361A::init_CLPosital(uint32_t ZeroPos) {
 	delay(5);
 	uint32_t encoderPos =getEncoderPos();
 	long currentPos = 0;
-	uint32_t overflow = 3355439640;
+	uint32_t overflow = 3355437030;
 	if(abs(long(encoderPos-ZeroPos)) >20000000){
 		if(encoderPos < ZeroPos) currentPos = overflow-ZeroPos+encoderPos; // Overflow was passed positively
 		if(encoderPos > ZeroPos) currentPos = encoderPos-overflow -ZeroPos; //Overflow was passed negatively
@@ -205,11 +205,6 @@ void TMC4361A::init_CLPosital(uint32_t ZeroPos) {
  	writeRegister(TMC4361A_ENC_IN_CONF,ENC_IN_CONF);
 
  	//Setup motion profile
- 	/*writeRegister(TMC4361A_RAMPMODE,0b101); //Set trapez ramp with POS mode
- 	writeRegister(TMC4361A_VMAX,VMAX_DEFAULT); //2 turn/s
- 	writeRegister(TMC4361A_AMAX,AMAX_DEFAULT);
- 	writeRegister(TMC4361A_DMAX,AMAX_DEFAULT);*/
-
  	writeRegister(TMC4361A_RAMPMODE,0b110); //S-shaped ramp
  	writeRegister(TMC4361A_BOW1,AMAX_DEFAULT);
  	writeRegister(TMC4361A_BOW2,AMAX_DEFAULT);
@@ -218,7 +213,6 @@ void TMC4361A::init_CLPosital(uint32_t ZeroPos) {
  	writeRegister(TMC4361A_AMAX,AMAX_DEFAULT);
  	writeRegister(TMC4361A_DMAX,AMAX_DEFAULT);
  	writeRegister(TMC4361A_VMAX,VMAX_DEFAULT);
-
  	//Set max encoder variation
  	writeRegister(TMC4361A_CL_TR_TOLERANCE_WR,0x000000FF); //Tolerance for target reached = 256 -> 1FS
  	writeRegister(TMC4361A_ENC_POS_DEV_TOL_WR,0x00000A00); //Max ENC_POS_DEV before considered as error -> 10 FS 2560
@@ -233,7 +227,7 @@ void TMC4361A::init_CLPosital(uint32_t ZeroPos) {
  	writeRegister(TMC4361A_PID_I_CLIP_WR,0x00500000); //DV_CLIP/PID_I
  	writeRegister(TMC4361A_PID_DV_CLIP_WR,0x01000000); //cl_vlimit = 1/10 of max vel
  	ENC_IN_CONF = ENC_IN_CONF | 0x08000000; //Enable catch up velocity limitation
- 	ENC_IN_CONF = ENC_IN_CONF |0x10000; //Internal multiturn
+ 	ENC_IN_CONF = ENC_IN_CONF |0x10000; //Internal multiturn -- Disable to find proper 0 position
  	writeRegister(TMC4361A_ENC_IN_CONF,ENC_IN_CONF);
  	
  	clearEvent();
