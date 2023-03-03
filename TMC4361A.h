@@ -9,7 +9,7 @@
 
 
 //#define VMAX_DEFAULT 0x04000000 // 262144/s = 5 turn/s 23 digits / 8 decimal max value for 16 MHz : 4.194 Mpps = 82 rps at 256 usteps 3FFED000 max value
-#define VMAX_DEFAULT	 0x0F000000 // 524288/s = 12.5 turn/s
+#define VMAX_DEFAULT	 0x0F000000 // 983040/s = 19.2 turn/s
 #define VMAX_SLOW	 0x04000000 //51200/s = 1turn/s
 //#define VMAX_DEFAULT 0x04000000
 #define AMAX_DEFAULT 0x00200000 //262144/s2 22 digits / 2 decimal max value for 16 MHz : 2.097 Mpps2
