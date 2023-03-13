@@ -37,8 +37,8 @@ void TMC4361A::begin() {
 	powerOffMOSFET();
 
 	//Movement parameters
-	uint32_t DIR_SETUP_TIME = 20;//#clock cycle step pulse wait after dir change
-	uint32_t STP_LENGTH_ADD = 2;//#clock cycle step pulse is held -> 250 ns?
+	uint32_t DIR_SETUP_TIME = 4;//#clock cycle step pulse wait after dir change
+	uint32_t STP_LENGTH_ADD = 1;//#clock cycle step pulse is held -> 250 ns?
 	writeRegister(TMC4361A_STP_LENGTH_ADD,((DIR_SETUP_TIME << 16) | STP_LENGTH_ADD));
 	writeRegister(TMC4361A_RAMPMODE,0b101); //Trapezoidal motion profile in positioning mode
 	//max value for 16 MHz : 4.194 Mpps = 82 rps at 256 usteps
@@ -48,37 +48,6 @@ void TMC4361A::begin() {
 	writeRegister(TMC4361A_X_TARGET,0);//reset target
 	delay(500);
 	powerOnMOSFET();//Enable the MOSFET
-
-}
-
-void TMC4361A::beginCL() {
-	//resetController();
-
-	SPI.begin();
-	_spiSettings = SPISettings(1000000,MSBFIRST,SPI_MODE3);
-	//SPI.beginTransaction(_spiSettings);
-
-	//Reset the controller
-	writeRegister(TMC4361A_RESET_REG,0x52535400); // reset code
-	delay(200);
-	clearEvent();
-	//writeRegister(TMC4361A_EVENT_CLEAR_CONF,0b1<<14 | 1 << 17); //ENC_FAIL & SER_ENC_VAR is not cleared when reading event
-
-	writeRegister(TMC4361A_SPIOUT_CONF,0x8440010B);//844->SPI timing 10B-> 1us between poll TMC26x S/D output
-	writeRegister(TMC4361A_STEP_CONF, 0x00FB0C80);// 200 steps/rev 256 usteps
-	writeRegister(TMC4361A_CLK_FREQ,CLK_FREQ); //20MHz external clock
-
-	//init_EncoderSPI();//Init the encoder
-	
-	init_TMC2660();//Init the driver
-	//Movement parameters
-	uint32_t DIR_SETUP_TIME = 2;//#clock cycle step pulse wait after dir change
-	uint32_t STP_LENGTH_ADD = 1;//#clock cycle step pulse is held
-	writeRegister(TMC4361A_STP_LENGTH_ADD,((DIR_SETUP_TIME << 16) | STP_LENGTH_ADD));
-	clearEvent();
-	init_closedLoop();
-	delay(500);
-	//powerOnMOSFET();//Disable the MOSFET to prevent the motor from over heating
 
 }
 void TMC4361A::init_TMC2660() {
@@ -136,7 +105,6 @@ void TMC4361A::init_CLPosital(uint32_t ZeroPos) {
 	SSI_IN_CLK_DELAY = SSI_IN_CLK_DELAY & 0xFFFF0000;
 	SSI_IN_CLK_DELAY = SSI_IN_CLK_DELAY | 0x00AA; //8*20 + 10 = 170
 	writeRegister(TMC4361A_SSI_IN_CLK_DELAY_WR,SSI_IN_CLK_DELAY);
-	//writeRegister(TMC4361A_SSI_IN_CLK_DELAY_WR, 0x0F0000A0); // 8*20 clock cycle before start -> doesn't work
 	writeRegister(TMC4361A_SER_PTIME_WR,0x007D0); //100us between call
 
 	writeRegister(TMC4361A_GENERAL_CONF,0x00006020|0x00000400);//Encoder in SSI mode
@@ -206,15 +174,15 @@ void TMC4361A::init_CLPosital(uint32_t ZeroPos) {
 
  	//Setup motion profile
  	writeRegister(TMC4361A_RAMPMODE,0b110); //S-shaped ramp
- 	writeRegister(TMC4361A_BOW1,AMAX_DEFAULT);
+ 	writeRegister(TMC4361A_BOW1,AMAX_DEFAULT/2);
  	writeRegister(TMC4361A_BOW2,AMAX_DEFAULT);
  	writeRegister(TMC4361A_BOW3,AMAX_DEFAULT);
- 	writeRegister(TMC4361A_BOW4,AMAX_DEFAULT);
+ 	writeRegister(TMC4361A_BOW4,AMAX_DEFAULT/2);
  	writeRegister(TMC4361A_AMAX,AMAX_DEFAULT);
  	writeRegister(TMC4361A_DMAX,AMAX_DEFAULT);
  	writeRegister(TMC4361A_VMAX,VMAX_DEFAULT);
  	//Set max encoder variation
- 	writeRegister(TMC4361A_CL_TR_TOLERANCE_WR,0x000000FF); //Tolerance for target reached = 256 -> 1FS
+ 	writeRegister(TMC4361A_CL_TR_TOLERANCE_WR,0x00000100); //Tolerance for target reached = 256 -> 1FS
  	writeRegister(TMC4361A_ENC_POS_DEV_TOL_WR,0x00000A00); //Max ENC_POS_DEV before considered as error -> 10 FS 2560
  	
  	//PI
@@ -707,5 +675,36 @@ void TMC4361A::begin_closedLoop(){
  	writeRegister(TMC4361A_VMAX,VMAX_DEFAULT); //2 turn/s
  	writeRegister(TMC4361A_AMAX,AMAX_DEFAULT);
  	writeRegister(TMC4361A_DMAX,AMAX_DEFAULT);
+
+}
+
+void TMC4361A::beginCL() {
+	//resetController();
+
+	SPI.begin();
+	_spiSettings = SPISettings(1000000,MSBFIRST,SPI_MODE3);
+	//SPI.beginTransaction(_spiSettings);
+
+	//Reset the controller
+	writeRegister(TMC4361A_RESET_REG,0x52535400); // reset code
+	delay(200);
+	clearEvent();
+	//writeRegister(TMC4361A_EVENT_CLEAR_CONF,0b1<<14 | 1 << 17); //ENC_FAIL & SER_ENC_VAR is not cleared when reading event
+
+	writeRegister(TMC4361A_SPIOUT_CONF,0x8440010B);//844->SPI timing 10B-> 1us between poll TMC26x S/D output
+	writeRegister(TMC4361A_STEP_CONF, 0x00FB0C80);// 200 steps/rev 256 usteps
+	writeRegister(TMC4361A_CLK_FREQ,CLK_FREQ); //20MHz external clock
+
+	//init_EncoderSPI();//Init the encoder
+	
+	init_TMC2660();//Init the driver
+	//Movement parameters
+	uint32_t DIR_SETUP_TIME = 2;//#clock cycle step pulse wait after dir change
+	uint32_t STP_LENGTH_ADD = 1;//#clock cycle step pulse is held
+	writeRegister(TMC4361A_STP_LENGTH_ADD,((DIR_SETUP_TIME << 16) | STP_LENGTH_ADD));
+	clearEvent();
+	init_closedLoop();
+	delay(500);
+	//powerOnMOSFET();//Disable the MOSFET to prevent the motor from over heating
 
 }
