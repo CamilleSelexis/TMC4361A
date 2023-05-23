@@ -33,6 +33,7 @@ void TMC4361A::begin() {
 
 	//init_EncoderSPI();//Init the encoder
 	//init_EncoderSSI();
+	delay(200);
 	init_TMC2660();//Init the driver
 	powerOffMOSFET();
 
