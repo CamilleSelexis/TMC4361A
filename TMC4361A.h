@@ -98,7 +98,7 @@ class TMC4361A
 		    SER_ENC_DATA_FAIL,
 		    SER_DATA_DONE = 23,
 		    SERIAL_ENC_FLAG,
-		    COVER_DONE,
+		    COVER_DONE = 25,
 		    ENC_VEL_ZERO,
 		    CL_MAX,
 		    CL_FIT,

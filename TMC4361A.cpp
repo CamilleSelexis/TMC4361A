@@ -2,7 +2,8 @@
 
 #include "TMC4361A.h"
 //#include "TMC2660_REG.h"
-#include "Arduino.h"
+#include <Arduino.h>
+#include "RPC.h"
 
 TMC4361A::TMC4361A(uint8_t cs, uint8_t rst_pin) {
 	_cs = cs;
@@ -19,7 +20,6 @@ TMC4361A::TMC4361A(uint8_t cs, uint8_t rst_pin) {
 
 void TMC4361A::begin() {
 //resetController();
-
 	SPI.begin();
 	_spiSettings = SPISettings(1000000,MSBFIRST,SPI_MODE3);
 	//SPI.beginTransaction(_spiSettings);
@@ -51,14 +51,17 @@ void TMC4361A::begin() {
 	powerOnMOSFET();//Enable the MOSFET
 
 }
+
 void TMC4361A::init_TMC2660() {
 
 	//add control that coverdone is properly set
 	uint32_t events;
+
 	//TMC4361A_COVER_LOW_WR
 	CHOPCONF_REG = 0x000901B4;
 	writeRegister(TMC4361A_COVER_LOW_WR,CHOPCONF_REG); //CHOPCONF
 	events = clearEvent();
+	//Check that cover done was set
 
 	SGSCONF_REG = 0x000D4107;
 	//SGSCONF_REG = 0x000D410A;
@@ -76,7 +79,6 @@ void TMC4361A::init_TMC2660() {
 	SMARTEN_REG = 0x000A8202;
 	writeRegister(TMC4361A_COVER_LOW_WR,SMARTEN_REG); //coolStep Control Register
 	events = clearEvent();
-
 	//min current at 1/4
 	//32 val out of threshold to trigger decrease
 	//1 val below threshold 
