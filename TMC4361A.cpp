@@ -186,8 +186,9 @@ void TMC4361A::init_CLPosital(uint32_t ZeroPos) {
  	writeRegister(TMC4361A_VMAX,VMAX_DEFAULT);
  	//Set max encoder variation
  	writeRegister(TMC4361A_CL_TR_TOLERANCE_WR,0x00000100); //Tolerance for target reached = 256 -> 1FS
+ 	//writeRegister(TMC4361A_CL_TR_TOLERANCE_WR,0x00000A00); //Tolerance for target reached = 2560 -> 10FS
  	writeRegister(TMC4361A_ENC_POS_DEV_TOL_WR,0x00000A00); //Max ENC_POS_DEV before considered as error -> 10 FS 2560
- 	
+ 	//writeRegister(TMC4361A_ENC_POS_DEV_TOL_WR,0x00002000); //Max ENC_POS_DEV before considered as error -> 32 FS 8192
  	//PI
  	writeRegister(TMC4361A_CL_TOLERANCE_WR,0x00000080); //cl_tolerance = 128 -> CL_delta maxed at 128 uS error
  	writeRegister(TMC4361A_CL_DELTA_P_WR,0x00010000); //cl_p = 1
